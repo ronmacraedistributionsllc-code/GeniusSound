@@ -17,6 +17,10 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (_req, { p
     const renderId = (job.payload as { renderId?: string }).renderId;
     if (renderId) await db.renderJob.updateMany({ where: { id: renderId }, data: { status: 'QUEUED', error: null, progress: 0, finishedAt: null } });
   }
+  if (job.type === 'SCENE_GENERATION') {
+    const generationId = (job.payload as { generationId?: string }).generationId;
+    if (generationId) await db.sceneGeneration.updateMany({ where: { id: generationId }, data: { status: 'QUEUED', error: null, progress: 0, finishedAt: null } });
+  }
   await db.job.update({ where: { id }, data: { status: 'QUEUED', attempts: 0, error: null, progress: 0, progressMessage: 'Queued (retry)', runAt: new Date(), startedAt: null, finishedAt: null } });
   return ok({ ok: true });
 });

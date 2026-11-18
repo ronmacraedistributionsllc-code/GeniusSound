@@ -42,7 +42,7 @@ beforeEach(() => { renderLyricVideo.mockReset(); exists.mockReset().mockResolved
 describe('lyric render worker', () => {
   it('renders with saved word timings and records a real output', async () => {
     const db = fakeDb(); renderLyricVideo.mockResolvedValue({ output: 'x', duration: 30 });
-    await runLyricRender(as(db), { id: 'j1', projectId: 'p1', payload: { renderId: 'r1' } } as Job);
+    await runLyricRender(as(db), { id: 'j1', projectId: 'p1', payload: { renderId: 'r1' } } as unknown as Job);
     const call = renderLyricVideo.mock.calls[0][0];
     expect(call).toMatchObject({ audio: 'projects/p1/audio/a.wav', output: 'projects/p1/renders/r1.mp4', duration: 30, template: 'bold_center', aspect: '9:16' });
     expect(call.lines[0].words).toHaveLength(2);

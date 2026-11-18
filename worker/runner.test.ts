@@ -100,7 +100,7 @@ describe('worker', () => {
     expect(db.jobs.j1.status).toBe('CANCELLED'); expect(db.sections).toHaveLength(0); expect(db.analyses.a1.status).not.toBe('COMPLETE');
   });
   it('fails (not fakes) job types with no handler yet', async () => {
-    const db = fakeDb(); addJob(db, { type: 'SCENE_GENERATION' as never });
+    const db = fakeDb(); addJob(db, { type: 'PROMO_CLIP' as never });
     await processJob(asDb(db), (await claimNext(asDb(db)))!);
     expect(db.jobs.j1.status).toBe('FAILED'); expect(db.jobs.j1.error).toMatch(/No worker handler/);
   });

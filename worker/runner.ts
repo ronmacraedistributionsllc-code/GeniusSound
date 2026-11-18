@@ -1,6 +1,7 @@
 import type { Job, PrismaClient } from '@prisma/client';
 import { mediaApi, MediaApiError, type AnalysisResult } from '../src/lib/media-api';
 import { getStorage } from '../src/lib/storage';
+import { markGenerationFailed, runSceneGeneration } from './scene-generation';
 import { markRenderFailed, runLyricRender, runLyricSync } from './lyrics-render';
 
 type Db = PrismaClient;
@@ -89,6 +90,7 @@ export async function processJob(db: Db, job: Job): Promise<void> {
   try {
     if (job.type === 'SONG_ANALYSIS') await runSongAnalysis(db, job);
     else if (job.type === 'RENDER_ASSEMBLY') await runLyricRender(db, job);
+    else if (job.type === 'SCENE_GENERATION') await runSceneGeneration(db, job);
     else if (job.type === 'TRANSCRIPTION') await runLyricSync(db, job);
     else throw new MediaApiError(`No worker handler for ${job.type} yet`, null, false);
   } catch (e) {
@@ -108,5 +110,6 @@ export async function processJob(db: Db, job: Job): Promise<void> {
     });
     if (r.count && job.type === 'SONG_ANALYSIS') await markAnalysisFailed(db, job, message);
     if (r.count && job.type === 'RENDER_ASSEMBLY') await markRenderFailed(db, job, message);
+    if (r.count && job.type === 'SCENE_GENERATION') await markGenerationFailed(db, job, message);
   }
 }

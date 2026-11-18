@@ -22,5 +22,13 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (_req, { p
     const renderId = (job.payload as { renderId?: string })?.renderId;
     if (renderId) await db.renderJob.updateMany({ where: { id: renderId, status: { in: ['QUEUED', 'RUNNING'] } }, data: { status: 'CANCELLED', finishedAt: new Date() } });
   }
+  if (job.type === 'SCENE_GENERATION') {
+    const generationId = (job.payload as { generationId?: string })?.generationId;
+    const gen = generationId ? await db.sceneGeneration.findUnique({ where: { id: generationId } }) : null;
+    if (gen) {
+      await db.sceneGeneration.updateMany({ where: { id: gen.id, status: { in: ['QUEUED', 'RUNNING'] } }, data: { status: 'CANCELLED', finishedAt: new Date() } });
+      await db.storyboardScene.updateMany({ where: { id: gen.sceneId, status: 'GENERATING' }, data: { status: 'DRAFT' } });
+    }
+  }
   return ok({ ok: true });
 });
