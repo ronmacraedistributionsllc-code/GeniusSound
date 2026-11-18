@@ -35,6 +35,17 @@ def _norm(w: str) -> str:
     return re.sub(r"[^\w']", "", w.lower())
 
 
+def _decode_audio(path: str):
+    """Decode to 16 kHz mono float32 with ffmpeg (independent of PyAV version quirks)."""
+    import subprocess
+    import numpy as np
+    p = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
+                       capture_output=True, timeout=600)
+    if p.returncode != 0 or not p.stdout:
+        raise TranscriptionUnavailable("Could not decode audio: " + p.stderr.decode("utf-8", "replace")[-300:])
+    return np.frombuffer(p.stdout, dtype=np.float32)
+
+
 def transcribe(path: str, language: Optional[str] = None, model_size: Optional[str] = None) -> list[dict[str, Any]]:
     """Return ASR words [{word,start,end,probability}]. Never invents text."""
     try:
@@ -45,7 +56,7 @@ def transcribe(path: str, language: Optional[str] = None, model_size: Optional[s
     size = model_size or os.getenv("WHISPER_MODEL", "small")
     try:
         model = WhisperModel(size, device="auto", compute_type="auto")
-        segments, _ = model.transcribe(path, word_timestamps=True, language=language, vad_filter=True)
+        segments, _ = model.transcribe(_decode_audio(path), word_timestamps=True, language=language, vad_filter=True)
         words = []
         for seg in segments:
             for w in seg.words or []:
