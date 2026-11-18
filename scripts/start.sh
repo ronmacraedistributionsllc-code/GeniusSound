@@ -34,9 +34,18 @@ npx prisma migrate deploy
 api/.venv/bin/pip install -q -r api/requirements.txt
 
 mkdir -p .data/storage
+# Stop any previous Genius Sound run (stale next dev on 3000/3876, old media API, old worker).
+for p in 3000 3876 8876; do
+  pids="$(lsof -ti tcp:$p -sTCP:LISTEN 2>/dev/null || true)"
+  for pid in $pids; do
+    if ps -o command= -p "$pid" 2>/dev/null | grep -qE "next|uvicorn|node"; then kill "$pid" 2>/dev/null || true; fi
+  done
+done
+pkill -f "tsx worker/index.ts" 2>/dev/null || true
+sleep 1
 for p in 3876 8876; do
   if (echo > /dev/tcp/127.0.0.1/$p) 2>/dev/null; then
-    echo "ERROR: port $p is already in use. Free it (lsof -i :$p) and rerun."; exit 1
+    echo "ERROR: port $p is used by another app. Free it (lsof -i :$p) and rerun."; exit 1
   fi
 done
 ROOT="$(pwd)"

@@ -3,8 +3,34 @@
 Heavy work (analysis, generation, rendering) is added in later phases and is
 always invoked by workers, not by browser requests.
 """
+import os
 import shutil
 import subprocess
+from pathlib import Path
+
+
+def _load_env() -> None:
+    """Load ../.env (without overriding real env vars) so the API works however it is started."""
+    root = Path(__file__).resolve().parent.parent
+    f = root / ".env"
+    if f.exists():
+        for line in f.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            v = v.strip()
+            if v[:1] in "\"'" and v.count(v[0]) >= 2:
+                v = v[1:v.index(v[0], 1)]
+            else:
+                v = v.split(" #")[0].strip()
+            os.environ.setdefault(k.strip(), v)
+    sr = os.environ.get("STORAGE_LOCAL_ROOT")
+    if sr and not os.path.isabs(sr):
+        os.environ["STORAGE_LOCAL_ROOT"] = str((root / sr).resolve())
+
+
+_load_env()
 
 from fastapi import FastAPI
 

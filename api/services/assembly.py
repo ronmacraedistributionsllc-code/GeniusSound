@@ -96,7 +96,8 @@ def run(cmd: list[str], total_sec: float, on_progress: Optional[Callable[[float]
         p.kill()
         raise RuntimeError("ffmpeg timed out")
     if p.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed: {err[-500:]}")
+        errs = [l for l in err.splitlines() if re.search(r"error|invalid|no such|unable|failed", l, re.I)]
+        raise RuntimeError("ffmpeg failed: " + " | ".join(errs[-6:])[-900:])
     if on_progress:
         on_progress(1.0)
 
@@ -137,8 +138,28 @@ def lyric_video_command(background: Optional[str], audio: str, ass: str, out: st
     return cmd
 
 
+_ASS_BROKEN = False  # set once if this FFmpeg build cannot load the `ass` filter
+
+
 def render_lyric_video(background: Optional[str], audio: str, ass: str, out: str, duration: float,
-                       on_progress: Optional[Callable[[float], None]] = None, **kw) -> dict:
+                       on_progress: Optional[Callable[[float], None]] = None, fallback: Optional[dict] = None, **kw) -> dict:
+    global _ASS_BROKEN
     Path(out).parent.mkdir(parents=True, exist_ok=True)
-    run(lyric_video_command(background, audio, ass, out, duration, **kw), duration, on_progress)
-    return {"output": out, "duration": probe_duration(out)}
+    if not _ASS_BROKEN or not fallback:
+        try:
+            run(lyric_video_command(background, audio, ass, out, duration, **kw), duration, on_progress)
+            return {"output": out, "duration": probe_duration(out)}
+        except RuntimeError as e:
+            msg = str(e)
+            if not fallback or ("filter" not in msg and "ass" not in msg):
+                raise
+            _ASS_BROKEN = True  # libass unavailable/failing: use the built-in renderer from now on
+    from services.lyric_overlay import render_lyric_video_overlay
+    aspect, quality = kw.get("aspect", "16:9"), kw.get("quality", "1080p")
+    w, h = FORMATS[(aspect, quality)]
+    if kw.get("preview"):
+        w, h = (w // 2) - (w // 2) % 2, (h // 2) - (h // 2) % 2
+    render_lyric_video_overlay(fallback["lines"], fallback["template"], aspect, fallback.get("overrides"), background, audio,
+                               out, duration, w, h, fps=kw.get("fps", 30), bg_color=kw.get("bg_color", "#0b0b12"),
+                               preview=bool(kw.get("preview")), audio_start=kw.get("audio_start", 0.0), on_progress=on_progress)
+    return {"output": out, "duration": probe_duration(out), "renderer": "overlay"}

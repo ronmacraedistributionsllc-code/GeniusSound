@@ -271,7 +271,8 @@ def render_lyric_video(body: LyricVideoIn) -> dict:
         Path(ass_path).write_text(ass_text, encoding="utf-8")
         return assembly.render_lyric_video(safe_path(body.background) if body.background else None, safe_path(body.audio),
                                            ass_path, out, body.duration, aspect=body.aspect, quality=body.quality,
-                                           preview=body.preview, audio_start=body.start)
+                                           preview=body.preview, audio_start=body.start,
+                                           fallback={"lines": lines, "template": body.template, "overrides": body.overrides})
     except ValueError as e:
         raise HTTPException(422, str(e))
     except RuntimeError as e:

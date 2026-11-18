@@ -8,4 +8,6 @@ soundfile>=0.12
 numpy
 scipy
 faster-whisper>=1.1   # optional: word timestamps (MIT)
+huggingface_hub>=0.23,<1  # faster-whisper breaks with huggingface_hub 1.x/2.x (metadata_errors)
+pillow>=10.1          # lyric overlay renderer fallback
 pytest>=8.0
