@@ -35,9 +35,11 @@ _load_env()
 from fastapi import FastAPI
 
 from routes.api import router
+from routes.research import router as research_router
 
 app = FastAPI(title="Genius Sound API", version="0.1.0")
 app.include_router(router)
+app.include_router(research_router)
 
 
 def _ffmpeg_info() -> dict:

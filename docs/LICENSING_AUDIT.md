@@ -59,3 +59,9 @@ ComfyUI (self-hosted, GPL-3.0 server — we talk to it over HTTP, not link), Rep
 ## 6. Corrections to the earlier draft
 
 The previous version of this file named `scene_detect.py`, `keyframe_extractor.py` and `align_lyrics.py`, which do not exist in the repos, and described OpenMontage `scoring.py` as quality scoring (it scores provider/production paths). Those entries were removed.
+
+## Update 2026-11-18
+- `scenedetect` (BSD-3) and `opencv-python-headless` (Apache-2.0) added to api/requirements.txt.
+- OpenMontage (MIT) derived modules carry attribution in third_party/openmontage/NOTICE.md.
+- OneShotMV: pattern only; restricted models remain blocked.
+- VocaVid (AGPL) and Remotion (company license) remain unused; Remotion VERIFY item open.

@@ -10,4 +10,6 @@ scipy
 faster-whisper>=1.1   # optional: word timestamps (MIT)
 av>=14,<18          # PyAV 18+ removed an option faster-whisper still passes (metadata_errors)
 pillow>=10.1          # lyric overlay renderer fallback
+scenedetect>=0.6.4   # PySceneDetect, BSD-3 (unmodified dependency)
+opencv-python-headless>=4.8
 pytest>=8.0

@@ -36,3 +36,18 @@ Source: `~/GeniusSound-Research/` (read 2026-11-17). Repos stay separate; nothin
 
 ## Independently implemented regardless
 Audio analysis (librosa: BPM, key, sections, drops, energy), storyboard/versioning, identity-reference tooling, job queue, FFmpeg assembly and promo-clip selection.
+
+---
+## Update 2026-11-18 — what is actually integrated
+
+Earlier revisions of this report only *recommended* integrations. Now implemented (see `third_party/README.md`):
+
+| Repo | In the app now | Endpoint | Tests |
+|---|---|---|---|
+| PySceneDetect | `services/scenes.py` (detect, merge short, snap-to-cuts) via pip dependency | `POST /scenes/detect` | real-cut test on synthetic clip |
+| OpenMontage | `services/pacing.py` (gaps, overlaps, long/short scenes, section coverage, off-beat cuts, shot-variation), `services/shot_prompts.py` | `POST /pacing/check`, `POST /prompts/shot` | test_research.py |
+| OneShotMV | `services/takes.py` multi-take scoring/selection (clean-room, no restricted models) | `POST /takes/pick` | test_research.py |
+| VocaVid | Nothing (AGPL). Independent implementation only | — | — |
+| Remotion | Nothing (license decision pending) | — | — |
+
+Not yet wired into the UI/worker: scene detection on generated clips, pacing check on the storyboard screen, multi-take generation in the worker (each take costs ~15 min locally). OpenMontage `scoring.py`, `checkpoint.py`, `slideshow_risk.py` remain candidates.
