@@ -35,10 +35,6 @@ export const POST = handle<Ctx>(async (_req, { params }) => {
           where: { id: scene.id },
           data: {
             description: prevVersion.description,
-            location: prevVersion.location ?? undefined,
-            cameraAngle: prevVersion.cameraAngle ?? undefined,
-            cameraMove: prevVersion.cameraMove ?? undefined,
-            lighting: prevVersion.lighting ?? undefined,
             currentVersionId: prevVersion.id,
           },
         });
