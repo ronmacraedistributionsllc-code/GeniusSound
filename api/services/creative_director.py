@@ -21,8 +21,11 @@ from pydantic import BaseModel, Field, ValidationError
 from providers.base import ProviderError, ProviderNotConfigured, raise_for_http
 
 SYSTEM = (
-    "You are a veteran music-video director and cinematographer. You design visually concrete, filmable ideas "
-    "that fit the song's tempo, mood, lyrics and structure. Respond with JSON only, no commentary."
+    "You are an award-winning music-video director with 20 years of experience in cinematic storytelling. "
+    "You create visually stunning, emotionally resonant concepts that push creative boundaries. "
+    "Think like a Spike Jonze, Hype Williams, or Anton Corbijn. Design ideas with specific visual references, "
+    "color theory, cinematography techniques, and mood that perfectly match the song's energy and lyrics. "
+    "Every concept should feel like a blockbuster music video. Respond with JSON only, no commentary."
 )
 
 
@@ -125,9 +128,18 @@ def _song_brief(analysis: dict, lyrics: str) -> str:
 
 def generate_concepts(llm: LLM, analysis: dict, lyrics: str = "", instructions: str = "", count: int = 3) -> list[dict]:
     prompt = (f"{_song_brief(analysis, lyrics)}\n\nDIRECTOR NOTES FROM CLIENT: {instructions or 'none'}\n\n"
-              f"Propose {count} clearly different music-video concepts. JSON schema:\n"
+              f"Propose {count} wildly different, visually stunning music-video concepts that feel cinematic and original:\n\n"
+              "For EACH concept include:\n"
+              "- title: Catchy, memorable concept name\n"
+              "- logline: 1-line pitch (like a movie trailer)\n"
+              "- mood: Emotional atmosphere (e.g., 'dark & introspective', 'euphoric & surreal', 'gritty & raw')\n"
+              "- visual_style: Specific cinematographic style (mention lighting, color grading, texture, reference filmmakers like Spike Jonze, David Fincher, Hype Williams, etc.)\n"
+              "- color_palette: 3-5 dominant colors with emotional weight\n"
+              "- locations: Specific, visually interesting places (not generic)\n"
+              "- treatment: 2-3 paragraphs of CINEMATIC detail—describe camera work, composition, visual metaphors, production design. Make it feel like a world-class music video.\n\n"
+              "JSON schema:\n"
               '{"concepts":[{"title":str,"logline":str,"mood":str,"visual_style":str,"color_palette":[str],'
-              '"locations":[str],"treatment":str (2-3 paragraphs)}]}')
+              '"locations":[str],"treatment":str}]}')
     return [c.model_dump() for c in _ask(llm, prompt, ConceptList).concepts]
 
 
@@ -156,8 +168,18 @@ def generate_storyboard(llm: LLM, analysis: dict, concept: dict, lyrics: str = "
                         artist_notes: str = "") -> list[dict]:
     prompt = (f"{_song_brief(analysis, lyrics)}\n\nCHOSEN CONCEPT: {json.dumps(concept)}\n"
               f"CLIENT NOTES: {instructions or 'none'}\nARTIST / CHARACTER NOTES: {artist_notes or 'none'}\n\n"
-              "Write a scene-by-scene storyboard covering the whole song. Cut on section boundaries and big drops; "
-              "scenes must be filmable in 3-12 seconds each for AI generation (split long sections). JSON schema:\n"
+              "Write a CINEMATIC scene-by-scene storyboard covering the whole song. Cut on section boundaries and beat drops. "
+              "Each scene = 3-12 seconds for AI video generation.\n\n"
+              "For EACH scene:\n"
+              "- description: VIVID, CINEMATIC detail. Describe movement, composition, action, mood, visual effects. "
+              "Be specific: 'wide shot of silhouettes walking through neon rain, shallow depth of field, lens flare' not just 'people walking'\n"
+              "- camera_angle: Specific angle (e.g., 'extreme wide shot from above', 'tight close-up', 'Dutch angle', '45-degree bird\'s eye')\n"
+              "- camera_movement: Specific movement (e.g., 'slow dolly forward', 'quick whip pan', 'tracking shot left', 'static')\n"
+              "- lighting: Mood & technique (e.g., 'hard rim lighting, blue gels, volumetric haze', 'natural golden hour with long shadows')\n"
+              "- location: Specific, evocative place\n"
+              "- transition: How it cuts (cut, fade, dissolve, match cut)\n\n"
+              "Make each description FILMIC and SPECIFIC. Think shot lists from actual music videos.\n\n"
+              "JSON schema:\n"
               '{"scenes":[{"start":sec,"end":sec,"section":str,"lyrics":str,"description":str,"location":str,'
               '"characters":[str],"wardrobe":str,"vehicles":[str],"props":[str],"camera_angle":str,'
               '"camera_movement":str,"lighting":str,"transition":str}]}')
