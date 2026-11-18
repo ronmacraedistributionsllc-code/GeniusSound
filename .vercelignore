@@ -1,0 +1,5 @@
+api/
+worker/
+docs/
+.env.example
+*.md
