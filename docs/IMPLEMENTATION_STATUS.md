@@ -32,3 +32,10 @@ Last updated 2026-11-17.
 - Lyric videos use a plain background; scene clips are not yet used as lyric-video backgrounds.
 - Storyboard scene timing stays with each scene when reordered, so reordering changes cut order, not durations.
 - One ComfyUI workflow per kind (`COMFYUI_WORKFLOW_ID`, optional `COMFYUI_WORKFLOW_ID_T2V`).
+
+## Resume here (2026-11-18): local ComfyUI
+- All code, screens and tests for phases 1-11 are committed. 47 vitest and 40 pytest pass.
+- Only remaining blocker for real video: download 3 Wan 2.2 5B models in Comfy Desktop (Templates -> "Wan 2.2 5B Video Generation" -> Errors panel -> Download):
+  wan2.2_ti2v_5B_fp16.safetensors, wan2.2_vae.safetensors, umt5_xxl_fp8_e4m3fn_scaled.safetensors (~18GB).
+- Then: re-validate api/workflows/*.json via POST /prompt on 127.0.0.1:8188, run a short test generation, set COMFYUI_URL and workflow paths in .env.
+- Then run ./scripts/start.sh and walk the real DB flow; configure LLM_BASE_URL/LLM_MODEL (e.g. LM Studio) for concepts/storyboards.
