@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "worker": "tsx worker/index.ts",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -28,6 +33,7 @@
     "eslint-config-next": "16.4.6",
     "prisma": "^6.19.3",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.19.0",
     "typescript": "^5",
     "vitest": "^3.2.7"
   }

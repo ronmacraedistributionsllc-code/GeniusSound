@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
+/* Genius Sound is a dark, cinematic app: always dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07070b;
+  --foreground: #ececf1;
+  --gs-accent: #a855f7;
+  --gs-accent-2: #f59e0b;
 }
 
 @theme inline {
@@ -12,15 +17,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(168, 85, 247, 0.12), transparent 60%), var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

@@ -2,6 +2,9 @@
 
 # Phase 1 Gap Fixes (added after review, 2026-11-17)
 
+**RESOLVED 2026-11-17** — every item below was fixed in the review pass (README, status doc, `npm test`+vitest, `src/lib`, worker, `backend/` removed, git commits). Kept for history. See `docs/IMPLEMENTATION_STATUS.md`.
+
+
 Added: `docs/ARCHITECTURE.md`, `docs/COMPONENT_INTEGRATION_REPORT.md`, corrected `docs/LICENSING_AUDIT.md`,
 `api/` FastAPI skeleton (`/health`, tests), `.gitignore` now tracks `.env.example`.
 
