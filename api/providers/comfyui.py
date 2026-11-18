@@ -73,10 +73,14 @@ class ComfyUIProvider(Provider):
             image = self._upload_image(image)
         # Wan/LTX frame counts must be 4k+1; default 24 fps.
         fps = int(req.params.get("fps", 24))
-        frames = max(5, int(round((req.duration_sec or 5) * fps / 4)) * 4 + 1)
+        # Local Mac GPUs are slow at full HD: default to 832x480 and clips of at most 5 s (assembly holds the last
+        # frame if a scene is longer). Override with COMFYUI_WIDTH / COMFYUI_HEIGHT / COMFYUI_MAX_SECONDS.
+        max_sec = float(os.getenv("COMFYUI_MAX_SECONDS", "5"))
+        secs = min(req.duration_sec or 5, max_sec) if max_sec > 0 else (req.duration_sec or 5)
+        frames = max(5, int(round(secs * fps / 4)) * 4 + 1)
         mapping = {"{{prompt}}": req.prompt, "{{image}}": image, "{{audio}}": req.audio_url or "",
                    "{{duration}}": req.duration_sec or 0, "{{frames}}": frames, "{{fps}}": fps,
-                   "{{width}}": int(req.params.get("width", 1280)), "{{height}}": int(req.params.get("height", 704)),
+                   "{{width}}": int(req.params.get("width", os.getenv("COMFYUI_WIDTH", "832"))), "{{height}}": int(req.params.get("height", os.getenv("COMFYUI_HEIGHT", "480"))),
                    "{{seed}}": int(req.params.get("seed", int.from_bytes(os.urandom(4), "big")))}
         return _subst(wf, mapping)
 
@@ -108,7 +112,15 @@ class ComfyUIProvider(Provider):
             raise ProviderError(f"ComfyUI unreachable: {e}", retryable=True)
         st = hist.get("status", {})
         if st.get("status_str") == "error":
-            return GenerationStatus(FAILED, error=json.dumps(st.get("messages", []))[:500], raw=hist)
+            msgs = st.get("messages", [])
+            err = next((m[1] for m in msgs if m and m[0] == "execution_error"), None)
+            if err:
+                text = f"{err.get('node_type', 'node')}: {err.get('exception_message', 'error')}".strip()
+            elif any(m and m[0] == "execution_interrupted" for m in msgs):
+                text = "Generation was interrupted in ComfyUI"
+            else:
+                text = json.dumps(msgs)[:300]
+            return GenerationStatus(FAILED, error=text[:400], raw=hist)
         urls = []
         for out in hist.get("outputs", {}).values():
             for key in ("videos", "gifs", "images"):

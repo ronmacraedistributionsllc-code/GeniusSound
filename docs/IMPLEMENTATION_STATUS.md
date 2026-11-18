@@ -45,3 +45,9 @@ Last updated 2026-11-17.
 - Fixed: media API ignored `.env` (now loads it itself); lyric render failed because this Mac's FFmpeg cannot load `ass` (automatic Pillow overlay fallback, tested); Whisper crashed on PyAV 19 (audio decoded via ffmpeg, `av<18` pinned).
 - Verified live: /providers shows comfyui configured; lyric render 200; LLM concepts return real output (~40 s); transcription loads and runs.
 - Not yet exercised in the browser: full storyboard -> scene generation -> final export on a real song. Free disk space first (video needs several GB).
+
+## End-to-end verified on the Mac (2026-11-18)
+Throwaway account `pipeline-test@example.com` ran the whole chain through the live app:
+upload -> analysis (99 BPM on a 100 BPM test track) -> LLM concepts (~36 s) -> storyboard (~80 s, 4 scenes) -> local ComfyUI scene (real mp4) -> final preview export (8 s, downloadable).
+- Generation cost on this Mac: ~14-15 min per 5 s clip at 832x480 (Wan 2.2 5B). Defaults: `COMFYUI_WIDTH=832`, `COMFYUI_HEIGHT=480`, `COMFYUI_MAX_SECONDS=5` (longer scenes hold the last frame). A full 3-minute video of ~36 scenes is an overnight-plus job; use fewer/longer scenes, or lower `COMFYUI_WIDTH/HEIGHT`, or a cloud provider for speed.
+- Final export requires every scene to have a clip (by design).
