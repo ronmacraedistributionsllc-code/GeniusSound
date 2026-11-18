@@ -18,5 +18,9 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (_req, { p
     if (analysisId) await db.songAnalysis.updateMany({ where: { id: analysisId, status: { in: ['PENDING', 'RUNNING'] } }, data: { status: 'FAILED', error: 'Cancelled' } });
     if (job.projectId) await db.project.updateMany({ where: { id: job.projectId, status: 'ANALYZING' }, data: { status: 'DRAFT' } });
   }
+  if (job.type === 'RENDER_ASSEMBLY') {
+    const renderId = (job.payload as { renderId?: string })?.renderId;
+    if (renderId) await db.renderJob.updateMany({ where: { id: renderId, status: { in: ['QUEUED', 'RUNNING'] } }, data: { status: 'CANCELLED', finishedAt: new Date() } });
+  }
   return ok({ ok: true });
 });

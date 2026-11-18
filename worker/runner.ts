@@ -1,6 +1,7 @@
 import type { Job, PrismaClient } from '@prisma/client';
 import { mediaApi, MediaApiError, type AnalysisResult } from '../src/lib/media-api';
 import { getStorage } from '../src/lib/storage';
+import { markRenderFailed, runLyricRender, runLyricSync } from './lyrics-render';
 
 type Db = PrismaClient;
 export const STALE_MS = 15 * 60_000;
@@ -87,6 +88,8 @@ const BACKOFF_MS = (attempt: number) => Math.min(5 * 60_000, 5_000 * 2 ** (attem
 export async function processJob(db: Db, job: Job): Promise<void> {
   try {
     if (job.type === 'SONG_ANALYSIS') await runSongAnalysis(db, job);
+    else if (job.type === 'RENDER_ASSEMBLY') await runLyricRender(db, job);
+    else if (job.type === 'TRANSCRIPTION') await runLyricSync(db, job);
     else throw new MediaApiError(`No worker handler for ${job.type} yet`, null, false);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -104,5 +107,6 @@ export async function processJob(db: Db, job: Job): Promise<void> {
       data: { status: 'FAILED', finishedAt: new Date(), error: message.slice(0, 500), progressMessage: 'Failed' },
     });
     if (r.count && job.type === 'SONG_ANALYSIS') await markAnalysisFailed(db, job, message);
+    if (r.count && job.type === 'RENDER_ASSEMBLY') await markRenderFailed(db, job, message);
   }
 }

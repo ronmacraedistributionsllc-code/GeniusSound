@@ -35,6 +35,10 @@ export type AnalysisResult = {
   energy: { t: number; energy: number }[];
 };
 
+export type AlignedLine = { index: number; text: string; section?: string | null; start: number; end: number; words: { word: string; start: number; end: number; source?: string }[] };
+export type AlignResult = { lines: AlignedLine[]; matched: number; total_words: number; coverage: number };
+export type LyricVideoOptions = { template: string; aspect: '16:9' | '9:16' | '1:1'; quality: '1080p' | '4k'; preview: boolean };
+
 export const mediaApi = {
   providers: () => call('/providers') as Promise<{ providers: { name: string; kind: string; configured: boolean }[] }>,
   health: () => call('/health') as Promise<{ status: string; ffmpeg: { available: boolean } }>,
@@ -43,4 +47,14 @@ export const mediaApi = {
     fd.append('file', new Blob([data as BlobPart], { type: mimeType }), filename);
     return call('/analysis', { method: 'POST', body: fd, timeoutMs: 10 * 60_000 });
   },
+  alignLyrics: (body: { lyrics: string; asr_words?: unknown[]; song_duration?: number }) =>
+    call('/lyrics/align', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) as Promise<AlignResult>,
+  async transcribe(filename: string, data: Uint8Array, mimeType: string, language?: string) {
+    const fd = new FormData();
+    fd.append('file', new Blob([data as BlobPart], { type: mimeType }), filename);
+    return call(`/lyrics/transcribe${language ? `?language=${encodeURIComponent(language)}` : ''}`, { method: 'POST', body: fd, timeoutMs: 20 * 60_000 }) as Promise<{ words: unknown[] }>;
+  },
+  /** Paths are storage keys (relative to the shared storage root); the media service refuses anything outside it. */
+  renderLyricVideo: (body: { lines: unknown[]; audio: string; output: string; duration: number; background?: string } & LyricVideoOptions) =>
+    call('/render/lyric-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 60 * 60_000 }) as Promise<{ output: string; duration: number }>,
 };

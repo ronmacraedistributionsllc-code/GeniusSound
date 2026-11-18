@@ -1,3 +1,4 @@
+import { AccountForms } from '@/components/ui/AccountForms';
 import { Card, PageHeader } from '@/components/ui/ui';
 import { requireUserPage } from '@/lib/auth';
 import { getEnv } from '@/lib/env';
@@ -18,7 +19,7 @@ export default async function SettingsPage() {
         <Card>
           <h2 className="font-semibold mb-3">Account</h2>
           <dl className="text-sm space-y-2"><div className="flex justify-between"><dt className="text-zinc-500">Name</dt><dd>{user.name ?? '—'}</dd></div><div className="flex justify-between"><dt className="text-zinc-500">Email</dt><dd>{user.email}</dd></div><div className="flex justify-between"><dt className="text-zinc-500">Role</dt><dd>{user.role}</dd></div></dl>
-          <p className="text-xs text-zinc-600 mt-4">Password change and profile editing are not built yet.</p>
+          <div className="mt-5 pt-5 border-t border-zinc-800"><AccountForms name={user.name} /></div>
         </Card>
         <Card>
           <h2 className="font-semibold mb-3">Media service</h2>

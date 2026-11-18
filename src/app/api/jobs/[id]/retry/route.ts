@@ -13,6 +13,10 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (_req, { p
     if (p.analysisId) await db.songAnalysis.updateMany({ where: { id: p.analysisId }, data: { status: 'PENDING', error: null } });
     if (job.projectId) await db.project.updateMany({ where: { id: job.projectId }, data: { status: 'ANALYZING' } });
   }
+  if (job.type === 'RENDER_ASSEMBLY') {
+    const renderId = (job.payload as { renderId?: string }).renderId;
+    if (renderId) await db.renderJob.updateMany({ where: { id: renderId }, data: { status: 'QUEUED', error: null, progress: 0, finishedAt: null } });
+  }
   await db.job.update({ where: { id }, data: { status: 'QUEUED', attempts: 0, error: null, progress: 0, progressMessage: 'Queued (retry)', runAt: new Date(), startedAt: null, finishedAt: null } });
   return ok({ ok: true });
 });
