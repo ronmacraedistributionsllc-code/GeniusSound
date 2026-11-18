@@ -7,6 +7,7 @@ vi.mock('../src/lib/media-api', async () => {
   class MediaApiError extends Error { constructor(m: string, public status: number | null, public retryable: boolean) { super(m); } }
   return { mediaApi: { generate: (...a: unknown[]) => generate(...a), generationStatus: (...a: unknown[]) => status(...a), cancelGeneration: (...a: unknown[]) => cancel(...a) }, MediaApiError };
 });
+vi.mock('../src/lib/env', () => ({ getEnv: () => ({ STORAGE_LOCAL_ROOT: '/data/storage' }) }));
 vi.mock('../src/lib/storage', () => ({ getStorage: () => ({ put: (...a: unknown[]) => put(...a) }) }));
 
 import { GEN_POLL_MS } from './scene-generation';
@@ -56,5 +57,11 @@ describe('scene generation worker', () => {
     const db = fakeDb(); status.mockImplementation(async () => { db.jobRow.status = 'CANCELLED'; return { state: 'RUNNING', progress: 0.2, output_urls: [] }; });
     await processJob(as(db), asJob(db));
     expect(cancel).toHaveBeenCalled(); expect(put).not.toHaveBeenCalled(); expect(db.gen.status).not.toBe('SUCCEEDED');
+  });
+  it('uses the artist reference photo as the start frame (image-to-video)', async () => {
+    const db = fakeDb(); db.jobRow.payload = { generationId: 'g1', referenceKey: 'artists/u1/ref/photo.png' };
+    status.mockResolvedValue({ state: 'FAILED', progress: 0, output_urls: [], error: 'stop' });
+    await processJob(as(db), asJob(db));
+    expect(generate.mock.calls[0][0]).toMatchObject({ kind: 'image_to_video', image_url: '/data/storage/artists/u1/ref/photo.png' });
   });
 });

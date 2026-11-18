@@ -8,20 +8,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## HANDOFF — read this first (updated 2026-11-17)
+## HANDOFF — read this first (updated 2026-11-18)
 
-A review pass fixed Phase 1 and built Phases 2–3 end to end, then handed back to you. You are resuming. Do not start over.
+All 11 phases now have working code, screens and tests, but **nothing has run against a real PostgreSQL, a real LLM, a real ComfyUI or a real browser.** You are resuming to verify and fix. Do not start over.
 
-**Rules (unchanged, from the original brief):** no fake data or fake generation results; every visible control must work or be clearly marked "not built"; no hardcoded keys; never claim something works unless tested; commercial licensing is audited — read `docs/LICENSING_AUDIT.md` before adding any dependency, model or font; never copy VocaVid (AGPL) code.
+**Rules (unchanged):** no fake data or fake generation results; every visible control must work or be clearly marked "not built"; no hardcoded keys; never claim something works unless tested; commercial licensing is audited — read `docs/LICENSING_AUDIT.md` before adding any dependency, model or font; never copy VocaVid (AGPL) code. Do not recreate the deleted fake `backend/`.
 
-**What exists** (details in `docs/IMPLEMENTATION_STATUS.md`, `docs/API_CONTRACT.md`, `docs/ARCHITECTURE.md`):
-- Web app: auth, projects CRUD, audio upload, analysis view, queue, assets, settings. Libs in `src/lib/`, API routes in `src/app/api/`, worker in `worker/`.
-- Media/AI engines in `api/` (analysis, storyboard rules, providers, FFmpeg assembly, lyrics/karaoke, creative director, promo). **Do not reimplement them; wire to them.** The old fake-data `backend/` was deleted — do not recreate it.
-- Start everything: `./scripts/start.sh`. Tests: `npm test`, `cd api && PYTHONPATH=. pytest -q`.
+**Map:** web app `src/` (API routes `src/app/api/`, libs `src/lib/`, screens `src/app/dashboard/` + `src/components/`), job worker `worker/` (handlers: song analysis, lyric/promo/final render, Whisper sync, scene generation — each with tests), media/AI engines `api/` (FastAPI; wire to them, don't reimplement). Status table: `docs/IMPLEMENTATION_STATUS.md`. Local GPU setup: `docs/LOCAL_COMFYUI.md`.
 
-**Your first task:** nothing that touches PostgreSQL has ever run for real. Run `./scripts/start.sh`, register, create a project, upload a song, confirm analysis completes. Fix what breaks (and add tests). Report honestly what worked.
+**First task, in order:**
+1. `./scripts/start.sh`; register; create a project; upload a song; confirm analysis completes against real Postgres. Fix what breaks and add tests.
+2. Lyrics screen: save lyrics, render a lyric video, download it. Then promo clip.
+3. Configure an LLM (`LLM_BASE_URL`/`LLM_MODEL`), generate concepts and a storyboard.
+4. Download the Wan 2.2 files (docs/LOCAL_COMFYUI.md), start ComfyUI, generate one scene. The workflow JSONs in `api/workflows/` have never been executed; the `SaveVideo` format/codec inputs are the likely failure point (re-export in API format if rejected).
+5. Export the final video.
 
-**Then, in order:** Phase 4 screen + persistence (concepts via `/director/concepts`, save to `CreativeTreatment`) → Phase 5 storyboard screen persisted through `/storyboard/apply` → Phase 6 generation wiring (worker handler for `SCENE_GENERATION`: submit, poll, download real output into storage, never mark success without a real asset) → Phase 8 → 9 → 10 → 7 → 11.
-Every new worker job type needs a handler in `worker/runner.ts` (unhandled types fail loudly) and tests.
-
-**Known gaps:** password change/profile edit; S3 storage driver (`STORAGE_DRIVER=s3` throws); only the DB-free parts of the web app were exercised in the review sandbox.
+**Known gaps:** S3 storage driver (`STORAGE_DRIVER=s3` throws; the media service shares a local storage root); lyric videos use a plain background (scene clips are not yet used as backgrounds); load testing, deployment and a full security review; browser UI never visually checked.

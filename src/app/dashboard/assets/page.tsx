@@ -6,18 +6,22 @@ import { db } from '@/lib/db';
 
 export default async function AssetsPage() {
   const user = await requireUserPage();
-  const [audio, assets] = await Promise.all([
+  const [audio, assets, clips, outputs] = await Promise.all([
     db.audioUpload.findMany({ where: { project: { userId: user.id } }, orderBy: { createdAt: 'desc' }, take: 200, include: { project: { select: { id: true, title: true } } } }),
     db.projectAsset.findMany({ where: { project: { userId: user.id } }, orderBy: { createdAt: 'desc' }, take: 200, include: { project: { select: { id: true, title: true } } } }),
+    db.sceneGeneration.findMany({ where: { status: 'SUCCEEDED', scene: { storyboard: { project: { userId: user.id } } } }, orderBy: { createdAt: 'desc' }, take: 200, include: { scene: { select: { id: true, number: true, storyboard: { select: { project: { select: { id: true, title: true } } } } } } } }),
+    db.renderOutput.findMany({ where: { renderJob: { project: { userId: user.id } } }, orderBy: { createdAt: 'desc' }, take: 200, include: { renderJob: { select: { id: true, project: { select: { id: true, title: true } } } } } }),
   ]);
   const rows = [
     ...audio.map((a) => ({ id: a.id, kind: 'Audio', name: a.filename, project: a.project, size: a.sizeBytes, extra: a.durationSec ? fmtTime(a.durationSec) : '', at: a.createdAt, href: `/api/projects/${a.project.id}/audio/${a.id}` })),
     ...assets.map((a) => ({ id: a.id, kind: a.kind[0] + a.kind.slice(1).toLowerCase(), name: a.filename, project: a.project, size: a.sizeBytes, extra: '', at: a.createdAt, href: null as string | null })),
+    ...clips.map((g) => ({ id: g.id, kind: 'Scene clip', name: `Scene ${g.scene.number} (${g.provider})`, project: g.scene.storyboard.project, size: 0, extra: '', at: g.createdAt, href: `/api/scenes/${g.scene.id}/video` as string | null })),
+    ...outputs.map((o) => ({ id: o.id, kind: o.label, name: `${o.label}.mp4`, project: o.renderJob.project, size: o.sizeBytes, extra: '', at: o.createdAt, href: `/api/renders/${o.renderJob.id}/download` as string | null })),
   ].sort((x, y) => +y.at - +x.at);
   return (
     <>
       <PageHeader title="Asset Library" subtitle="Everything uploaded or generated across your projects." />
-      {rows.length === 0 ? <Empty title="No assets yet">Songs you upload to a project appear here.</Empty> : (
+      {rows.length === 0 ? <Empty title="No assets yet">Songs, generated clips and rendered videos appear here.</Empty> : (
         <div className="overflow-x-auto rounded-xl border border-zinc-800">
           <table className="w-full text-sm">
             <thead className="bg-zinc-900 text-zinc-400 text-left"><tr>{['Type', 'Name', 'Project', 'Size', 'Length', 'Added', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr></thead>
@@ -26,7 +30,7 @@ export default async function AssetsPage() {
                 <tr key={r.id} className="hover:bg-zinc-900/50">
                   <td className="px-4 py-3 text-zinc-400">{r.kind}</td><td className="px-4 py-3">{r.name}</td>
                   <td className="px-4 py-3"><Link className="hover:text-violet-300" href={`/dashboard/projects/${r.project.id}`}>{r.project.title}</Link></td>
-                  <td className="px-4 py-3">{fmtBytes(r.size)}</td><td className="px-4 py-3">{r.extra || '—'}</td><td className="px-4 py-3 text-zinc-500">{r.at.toLocaleDateString()}</td>
+                  <td className="px-4 py-3">{r.size ? fmtBytes(r.size) : '—'}</td><td className="px-4 py-3">{r.extra || '—'}</td><td className="px-4 py-3 text-zinc-500">{r.at.toLocaleDateString()}</td>
                   <td className="px-4 py-3">{r.href && <a className="text-violet-400 hover:underline" href={r.href} download={r.name}>Download</a>}</td>
                 </tr>
               ))}

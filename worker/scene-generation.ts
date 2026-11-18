@@ -1,4 +1,6 @@
 import type { Job, PrismaClient } from '@prisma/client';
+import path from 'path';
+import { getEnv } from '../src/lib/env';
 import { mediaApi, MediaApiError } from '../src/lib/media-api';
 import { scenePrompt } from '../src/lib/scene-prompt';
 import { getStorage } from '../src/lib/storage';
@@ -17,7 +19,7 @@ async function jobStatus(db: Db, id: string) {
  * Success is only recorded when a non-empty file exists in storage.
  */
 export async function runSceneGeneration(db: Db, job: Job): Promise<void> {
-  const { generationId } = job.payload as { generationId: string };
+  const { generationId, referenceKey } = job.payload as { generationId: string; referenceKey?: string | null };
   const gen = await db.sceneGeneration.findUnique({ where: { id: generationId }, include: { scene: { include: { storyboard: { include: { treatment: true } } } } } });
   if (!gen) throw new MediaApiError('Generation no longer exists', 404, false);
   const scene = gen.scene;
@@ -26,7 +28,9 @@ export async function runSceneGeneration(db: Db, job: Job): Promise<void> {
   await db.sceneGeneration.update({ where: { id: gen.id }, data: { status: 'RUNNING', startedAt: new Date(), error: null, prompt } });
   await db.storyboardScene.update({ where: { id: scene.id }, data: { status: 'GENERATING' } });
 
-  const { job_id } = await mediaApi.generate({ provider: gen.provider, kind: 'text_to_video', prompt, duration_sec: scene.durationSec });
+  // Reference photo -> image-to-video. The media service shares the storage root, so it gets the absolute path.
+  const imagePath = referenceKey ? path.resolve(getEnv().STORAGE_LOCAL_ROOT, referenceKey) : undefined;
+  const { job_id } = await mediaApi.generate({ provider: gen.provider, kind: imagePath ? 'image_to_video' : 'text_to_video', prompt, duration_sec: scene.durationSec, ...(imagePath ? { image_url: imagePath } : {}) });
   const started = Date.now();
   let strikes = 0;
   for (;;) {

@@ -27,7 +27,7 @@ Do not add models without checking `docs/LICENSING_AUDIT.md`.
    COMFYUI_URL=http://127.0.0.1:8188
    COMFYUI_WORKFLOW_ID=/absolute/path/to/GeniusSound/api/workflows/wan22_ti2v_5b_i2v.json
    ```
-   Use `wan22_ti2v_5b_t2v.json` for text-only generation.
+   Also set `COMFYUI_WORKFLOW_ID_T2V` to the `wan22_ti2v_5b_t2v.json` path: text-only scenes use it, scenes with an artist reference use the image workflow.
 3. `GET /providers` on the media API should report `comfyui` as configured.
 
 ## Workflow placeholders

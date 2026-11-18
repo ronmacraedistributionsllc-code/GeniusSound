@@ -58,8 +58,15 @@ class ComfyUIProvider(Provider):
         except httpx.HTTPError as e:
             raise ProviderError(f"ComfyUI image upload failed: {e}", retryable=True)
 
+    def _workflow_for(self, req: GenerationRequest) -> Path:
+        """Text-only requests use COMFYUI_WORKFLOW_ID_T2V when set (an image workflow can't run without a start frame)."""
+        t2v = os.getenv("COMFYUI_WORKFLOW_ID_T2V", "")
+        if req.kind == "text_to_video" and not req.image_url and t2v and Path(t2v).is_file():
+            return Path(t2v)
+        return Path(self.workflow_path)
+
     def _graph(self, req: GenerationRequest) -> dict:
-        raw = Path(self.workflow_path).read_text()
+        raw = self._workflow_for(req).read_text()
         wf = json.loads(raw)
         image = req.image_url or ""
         if image and "{{image}}" in raw:

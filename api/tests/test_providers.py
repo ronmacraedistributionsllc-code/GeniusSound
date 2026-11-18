@@ -126,3 +126,18 @@ def test_comfy_image_upload_and_substitution(tmp_path):
     assert p.submit(GenerationRequest("image_to_video", "a dancer", image_url=str(img), duration_sec=5)) == "p1"
     assert seen["graph"]["1"]["inputs"]["image"] == "f.png"
     assert seen["graph"]["2"]["inputs"]["length"] == 121 and seen["graph"]["2"]["inputs"]["text"] == "a dancer"
+
+
+def test_comfy_uses_t2v_workflow_for_text_only(tmp_path, monkeypatch):
+    import json as _j
+    i2v = tmp_path / "i2v.json"; i2v.write_text(_j.dumps({"1": {"inputs": {"image": "{{image}}"}}}))
+    t2v = tmp_path / "t2v.json"; t2v.write_text(_j.dumps({"1": {"inputs": {"text": "{{prompt}}"}}}))
+    monkeypatch.setenv("COMFYUI_WORKFLOW_ID_T2V", str(t2v))
+    seen = {}
+
+    def h(request):
+        seen["g"] = _j.loads(request.content)["prompt"]
+        return httpx.Response(200, json={"prompt_id": "p"})
+    p = ComfyUIProvider("http://c", str(i2v), httpx.Client(transport=httpx.MockTransport(h)))
+    p.submit(GenerationRequest("text_to_video", "dancer"))
+    assert seen["g"]["1"]["inputs"] == {"text": "dancer"}
