@@ -1,0 +1,641 @@
+// Genius Sound — Prisma schema
+// PostgreSQL. Run `npx prisma migrate dev` to apply.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions        Session[]
+  projects        Project[]
+  artistRefs      ArtistReference[]
+  aiProviders     AiProvider[]
+  usageRecords    UsageRecord[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id          String       @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  status      ProjectStatus @default(DRAFT)
+  // denormalized pointers for quick dashboard reads
+  audioUploadId String?
+  analysisId  String?
+  storyboardId String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioUploads   AudioUpload[]
+  artistRefs     ArtistReference[]
+  characterRefs  CharacterReference[]
+  assets         ProjectAsset[]
+  analyses       SongAnalysis[]
+  treatments     CreativeTreatment[]
+  storyboards    Storyboard[]
+  lyrics         Lyrics?
+  renderJobs     RenderJob[]
+  promoClips     PromoClip[]
+  jobs           Job[]
+
+  @@index([userId])
+}
+
+enum ProjectStatus {
+  DRAFT
+  ANALYZING
+  CONCEPTING
+  STORYBOARDING
+  GENERATING
+  ASSEMBLING
+  RENDERING
+  COMPLETE
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// Audio
+// ---------------------------------------------------------------------------
+
+model AudioUpload {
+  id          String   @id @default(cuid())
+  projectId   String
+  filename    String
+  storageKey  String
+  mimeType    String
+  sizeBytes   Int
+  durationSec Float?
+  createdAt   DateTime @default(now())
+
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analyses  SongAnalysis[]
+  lyrics    Lyrics?
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Artist / character identity
+// ---------------------------------------------------------------------------
+
+model ArtistReference {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  name        String
+  description String?
+  // identity attributes used to keep generation prompts consistent
+  faceNotes   String?
+  hairNotes   String?
+  wardrobeNotes String?
+  physiqueNotes String?
+  otherNotes  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project?            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  images    ReferenceImage[]
+  sceneRefs StoryboardSceneRef[]
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+model CharacterReference {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  role        String? // e.g. "love interest", "dancer 1"
+  description String?
+  createdAt   DateTime @default(now())
+
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  images    ReferenceImage[]
+  sceneRefs StoryboardSceneRef[]
+
+  @@index([projectId])
+}
+
+model ReferenceImage {
+  id        String   @id @default(cuid())
+  storageKey String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  artistRef       ArtistReference?     @relation(fields: [artistRefId], references: [id], onDelete: Cascade)
+  artistRefId     String?
+  characterRef    CharacterReference?  @relation(fields: [characterRefId], references: [id], onDelete: Cascade)
+  characterRefId  String?
+
+  @@index([artistRefId])
+  @@index([characterRefId])
+}
+
+// ---------------------------------------------------------------------------
+// Project assets (generic files: images, generated clips, fonts, etc.)
+// ---------------------------------------------------------------------------
+
+model ProjectAsset {
+  id         String   @id @default(cuid())
+  projectId  String
+  kind       AssetKind
+  filename   String
+  storageKey String
+  mimeType   String
+  sizeBytes  Int
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  FONT
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Song analysis
+// ---------------------------------------------------------------------------
+
+model SongAnalysis {
+  id          String   @id @default(cuid())
+  projectId   String
+  audioId     String
+  bpm         Float?
+  bpmConfidence Float?
+  key         String?
+  mode        String? // major/minor
+  durationSec Float
+  energyCurve Json? // sampled energy over time
+  beatGrid    Json? // beat timestamps
+  status      AnalysisStatus @default(PENDING)
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  audio    AudioUpload   @relation(fields: [audioId], references: [id], onDelete: Cascade)
+  sections SongSection[]
+
+  @@index([projectId])
+}
+
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+}
+
+model SongSection {
+  id          String   @id @default(cuid())
+  analysisId  String
+  order       Int
+  label       String // intro, verse, chorus, bridge, drop, outro, instrumental...
+  startSec    Float
+  endSec      Float
+  energy      Float?
+  notes       String?
+
+  analysis SongAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
+}
+
+// ---------------------------------------------------------------------------
+// Creative direction
+// ---------------------------------------------------------------------------
+
+model CreativeTreatment {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  logline     String?
+  mood        String?
+  visualStyle String?
+  palette     String?
+  directorNotes Json?
+  // structured creative bible
+  locations   Json?
+  characters  Json?
+  wardrobe    Json?
+  vehicles    Json?
+  props       Json?
+  cameraStyle Json?
+  lighting    Json?
+  transitions Json?
+  userInstructions String?
+  selected    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  storyboards Storyboard[]
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Storyboard
+// ---------------------------------------------------------------------------
+
+model Storyboard {
+  id          String   @id @default(cuid())
+  projectId   String
+  treatmentId String?
+  title       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  treatment CreativeTreatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  scenes    StoryboardScene[]
+
+  @@index([projectId])
+}
+
+model StoryboardScene {
+  id           String   @id @default(cuid())
+  storyboardId String
+  order        Int
+  number       Int
+  title        String
+  description  String
+  sectionLabel String? // verse, chorus...
+  lyricText    String?
+  startSec     Float
+  durationSec  Float
+  location     String?
+  cameraAngle  String?
+  cameraMove   String?
+  lighting     String?
+  transition   String?
+  status       SceneStatus @default(DRAFT)
+  locked       Boolean @default(false)
+  approvedAt   DateTime?
+  currentVersionId String? @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  storyboard Storyboard           @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+  versions   SceneVersion[]
+  currentVersion SceneVersion?    @relation("SceneCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  refs       StoryboardSceneRef[]
+  generations SceneGeneration[]
+
+  @@index([storyboardId])
+}
+
+enum SceneStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  GENERATING
+  GENERATED
+  FAILED
+}
+
+// join table: which identity refs appear in a scene
+model StoryboardSceneRef {
+  id              String   @id @default(cuid())
+  sceneId         String
+  artistRefId     String?
+  characterRefId  String?
+
+  scene        StoryboardScene      @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  artistRef    ArtistReference?     @relation(fields: [artistRefId], references: [id], onDelete: Cascade)
+  characterRef CharacterReference?  @relation(fields: [characterRefId], references: [id], onDelete: Cascade)
+
+  @@index([sceneId])
+}
+
+model SceneVersion {
+  id        String   @id @default(cuid())
+  sceneId   String
+  version   Int
+  description String
+  prompt    String?
+  changedBy String? // "user" | "ai"
+  createdAt DateTime @default(now())
+
+  scene StoryboardScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  currentForScene StoryboardScene? @relation("SceneCurrentVersion")
+
+  @@index([sceneId])
+}
+
+// ---------------------------------------------------------------------------
+// AI generation
+// ---------------------------------------------------------------------------
+
+model SceneGeneration {
+  id          String   @id @default(cuid())
+  sceneId     String
+  provider    String
+  model       String?
+  status      GenerationStatus @default(QUEUED)
+  progress    Int      @default(0)
+  prompt      String?
+  negativePrompt String?
+  seed        Int?
+  storageKey  String? // generated video
+  posterKey   String? // first frame
+  error       String?
+  attempts    Int      @default(0)
+  jobId       String?
+  costCredits Float    @default(0)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  scene StoryboardScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@index([sceneId])
+}
+
+enum GenerationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Lyrics
+// ---------------------------------------------------------------------------
+
+model Lyrics {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  audioId     String?  @unique
+  source      LyricsSource @default(MANUAL)
+  language    String   @default("en")
+  status      LyricsStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  audio   AudioUpload? @relation(fields: [audioId], references: [id], onDelete: SetNull)
+  lines    LyricLine[]
+
+  @@index([projectId])
+}
+
+enum LyricsSource {
+  MANUAL
+  TRANSCRIBED
+  UPLOADED
+}
+
+enum LyricsStatus {
+  DRAFT
+  REVIEWED
+  FINAL
+}
+
+model LyricLine {
+  id       String   @id @default(cuid())
+  lyricsId String
+  order    Int
+  text     String
+  startSec Float
+  endSec   Float
+  words    WordTimestamp[]
+
+  lyrics Lyrics @relation(fields: [lyricsId], references: [id], onDelete: Cascade)
+
+  @@index([lyricsId])
+}
+
+model WordTimestamp {
+  id        String @id @default(cuid())
+  lineId    String
+  order     Int
+  word      String
+  startSec  Float
+  endSec    Float
+
+  line LyricLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@index([lineId])
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+model RenderJob {
+  id          String   @id @default(cuid())
+  projectId   String
+  kind        RenderKind
+  preset      String? // 1080p-16x9, 4k-16x9, 1080p-9x16, 1080p-1x1...
+  status      RenderStatus @default(QUEUED)
+  progress    Int      @default(0)
+  sceneIds    Json?
+  options     Json?
+  outputKey   String?
+  posterKey   String?
+  durationSec Float?
+  sizeBytes   Int?
+  error       String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outputs RenderOutput[]
+
+  @@index([projectId])
+}
+
+enum RenderKind {
+  PREVIEW
+  FINAL
+  LYRIC_VIDEO
+  PROMO_CLIP
+}
+
+enum RenderStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model RenderOutput {
+  id        String   @id @default(cuid())
+  renderJobId String
+  label     String
+  storageKey String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  renderJob RenderJob @relation(fields: [renderJobId], references: [id], onDelete: Cascade)
+
+  @@index([renderJobId])
+}
+
+// ---------------------------------------------------------------------------
+// Promotional clips
+// ---------------------------------------------------------------------------
+
+model PromoClip {
+  id          String   @id @default(cuid())
+  projectId   String
+  platform    PromoPlatform
+  durationSec Float
+  startSec    Float
+  endSec      Float
+  title       String?
+  status      RenderStatus @default(QUEUED)
+  renderJobId String?
+  outputKey   String?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+enum PromoPlatform {
+  TIKTOK
+  INSTAGRAM_REELS
+  YOUTUBE_SHORTS
+}
+
+// ---------------------------------------------------------------------------
+// AI providers & usage
+// ---------------------------------------------------------------------------
+
+model AiProvider {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      ProviderKind
+  name      String
+  baseUrl   String?
+  model     String?
+  enabled   Boolean  @default(true)
+  config    Json? // non-secret config; secrets live in env
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ProviderKind {
+  VIDEO
+  IMAGE
+  LLM
+  TRANSCRIPTION
+}
+
+model UsageRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String
+  operation String
+  credits   Float    @default(0)
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Background job queue (DB-backed; survives restarts)
+// ---------------------------------------------------------------------------
+
+model Job {
+  id        String   @id @default(cuid())
+  projectId String?
+  type      JobType
+  payload   Json
+  status    JobStatus @default(QUEUED)
+  priority  Int      @default(0)
+  attempts  Int      @default(0)
+  maxAttempts Int    @default(3)
+  progress  Int      @default(0)
+  progressMessage String?
+  result    Json?
+  error     String?
+  runAt     DateTime @default(now())
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAt, priority])
+  @@index([projectId])
+}
+
+enum JobType {
+  SONG_ANALYSIS
+  SCENE_GENERATION
+  RENDER_ASSEMBLY
+  PROMO_CLIP
+  TRANSCRIPTION
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}

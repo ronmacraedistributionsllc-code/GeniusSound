@@ -1,0 +1,23 @@
+# Local services. Web app (Next.js) runs on the host via scripts/start.sh.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: geniussound
+      POSTGRES_PASSWORD: geniussound
+      POSTGRES_DB: geniussound
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geniussound"]
+      interval: 5s
+      retries: 10
+  api:
+    build: ./api
+    env_file: [.env]
+    environment:
+      STORAGE_LOCAL_ROOT: /data/storage
+    ports: ["8000:8000"]
+    volumes: ["./.data:/data"]
+volumes:
+  pgdata:
