@@ -33,9 +33,9 @@ Last updated 2026-11-17.
 - Storyboard scene timing stays with each scene when reordered, so reordering changes cut order, not durations.
 - One ComfyUI workflow per kind (`COMFYUI_WORKFLOW_ID`, optional `COMFYUI_WORKFLOW_ID_T2V`).
 
-## Resume here (2026-11-18): local ComfyUI
-- All code, screens and tests for phases 1-11 are committed. 47 vitest and 40 pytest pass.
-- Only remaining blocker for real video: download 3 Wan 2.2 5B models in Comfy Desktop (Templates -> "Wan 2.2 5B Video Generation" -> Errors panel -> Download):
-  wan2.2_ti2v_5B_fp16.safetensors, wan2.2_vae.safetensors, umt5_xxl_fp8_e4m3fn_scaled.safetensors (~18GB).
-- Then: re-validate api/workflows/*.json via POST /prompt on 127.0.0.1:8188, run a short test generation, set COMFYUI_URL and workflow paths in .env.
-- Then run ./scripts/start.sh and walk the real DB flow; configure LLM_BASE_URL/LLM_MODEL (e.g. LM Studio) for concepts/storyboards.
+## Wired up (2026-11-18)
+- ComfyUI: Wan 2.2 5B models installed; a real text-to-video test generated an h264 clip. `.env` points at 127.0.0.1:8188 and both workflows.
+- LLM: LM Studio (`qwen/qwen3.6-35b-a3b`, http://127.0.0.1:1234/v1) answers; keep LM Studio's server running.
+- `scripts/start.sh` now exports `.env` to the media API, worker and web app (previously the media API never saw provider settings).
+- Ports: web 3876, media API 8876. Stop any stale `next dev` first (`kill <pid>`).
+- Still unverified end to end: the browser UI against a real Postgres, and a full scene generation through the app.

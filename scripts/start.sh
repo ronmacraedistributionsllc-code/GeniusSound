@@ -11,6 +11,8 @@ if [ ! -f .env ]; then
   sed -i.bak "s|^AUTH_SECRET=.*|AUTH_SECRET=\"$SECRET\"|" .env && rm -f .env.bak
   echo "Created .env with a fresh AUTH_SECRET. Edit it to add provider keys later."
 fi
+# Export .env to every child process (media API, worker, web) so provider settings reach them.
+set -a; . ./.env; set +a
 command -v node >/dev/null || { echo "Node.js 20+ required"; exit 1; }
 command -v python3 >/dev/null || { echo "Python 3.10+ required"; exit 1; }
 command -v ffmpeg >/dev/null || echo "WARNING: ffmpeg not found — rendering will fail (brew install ffmpeg)"
