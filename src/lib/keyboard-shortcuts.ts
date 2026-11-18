@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 /**
  * Keyboard shortcuts for Genius Sound.
  * Register shortcuts in components using useKeyboardShortcuts hook.

@@ -55,7 +55,11 @@ export function StoryboardStudio({ projectId, ready }: { projectId: string; read
       <Card className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="font-semibold">2 · Storyboard{board ? ` — ${board.scenes.length} scenes, ${fmtTime(total)}` : ''}</h2>
-          <button className={btn.primary} disabled={!!busy || !selected} onClick={() => run('board', () => api(`/api/projects/${projectId}/storyboard`, { method: 'POST', body: { instructions: instr } as never }))}>{busy === 'board' ? 'Writing storyboard…' : board ? 'Regenerate' : 'Generate storyboard'}</button>
+          <div className="flex gap-2">
+            <button className={btn.ghost} disabled={!!busy} title="Undo (Cmd+Z)" onClick={() => run('undo', () => api(`/api/projects/${projectId}/storyboard/undo`, { method: 'POST' }))}>↶ Undo</button>
+            <button className={btn.ghost} disabled={!!busy} title="Redo (Cmd+Shift+Z)" onClick={() => run('redo', () => api(`/api/projects/${projectId}/storyboard/redo`, { method: 'POST' }))}>↷ Redo</button>
+            <button className={btn.primary} disabled={!!busy || !selected} onClick={() => run('board', () => api(`/api/projects/${projectId}/storyboard`, { method: 'POST', body: { instructions: instr } as never }))}>{busy === 'board' ? 'Writing storyboard…' : board ? 'Regenerate' : 'Generate storyboard'}</button>
+          </div>
         </div>
         {!selected && <p className="text-xs text-zinc-500">Pick a concept above first.</p>}
         {board?.scenes.map((s, i) => (
