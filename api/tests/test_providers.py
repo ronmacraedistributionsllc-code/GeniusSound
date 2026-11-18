@@ -103,3 +103,26 @@ def test_http_5xx_retryable():
     with pytest.raises(ProviderError) as e:
         ReplicateProvider("t", "v", client(h)).submit(REQ)
     assert e.value.retryable
+
+
+def test_comfy_image_upload_and_substitution(tmp_path):
+    import json as _j
+    wf = tmp_path / "w.json"
+    wf.write_text(_j.dumps({"1": {"class_type": "LoadImage", "inputs": {"image": "{{image}}"}},
+                            "2": {"class_type": "X", "inputs": {"length": "{{frames}}", "text": "{{prompt}}"}}}))
+    img = tmp_path / "f.png"; img.write_bytes(b"\x89PNG")
+    seen = {}
+
+    def h(request):
+        if request.url.path == "/upload/image":
+            return httpx.Response(200, json={"name": "f.png"})
+        if request.url.path == "/prompt":
+            seen["graph"] = _j.loads(request.content)["prompt"]
+            return httpx.Response(200, json={"prompt_id": "p1"})
+        return httpx.Response(404)
+
+    p = ComfyUIProvider("http://c:8188", str(wf), httpx.Client(transport=httpx.MockTransport(h)))
+    from providers.base import GenerationRequest
+    assert p.submit(GenerationRequest("image_to_video", "a dancer", image_url=str(img), duration_sec=5)) == "p1"
+    assert seen["graph"]["1"]["inputs"]["image"] == "f.png"
+    assert seen["graph"]["2"]["inputs"]["length"] == 121 and seen["graph"]["2"]["inputs"]["text"] == "a dancer"

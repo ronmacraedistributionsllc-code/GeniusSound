@@ -39,10 +39,39 @@ class ComfyUIProvider(Provider):
     def configured(self) -> bool:
         return bool(self.base_url and self.workflow_path and Path(self.workflow_path).is_file())
 
+    def _upload_image(self, src: str) -> str:
+        """ComfyUI's LoadImage needs a file in its input dir: fetch the source and upload it."""
+        try:
+            if src.startswith(("http://", "https://")):
+                r = self.client.get(src, follow_redirects=True)
+                raise_for_http(r)
+                data, name = r.content, Path(src.split("?")[0]).name or "frame.png"
+            else:
+                path = Path(src)
+                if not path.is_file():
+                    raise ProviderError(f"Reference image not found: {src}")
+                data, name = path.read_bytes(), path.name
+            up = self.client.post(f"{self.base_url}/upload/image",
+                                  files={"image": (name, data)}, data={"overwrite": "true"})
+            raise_for_http(up)
+            return up.json()["name"]
+        except httpx.HTTPError as e:
+            raise ProviderError(f"ComfyUI image upload failed: {e}", retryable=True)
+
     def _graph(self, req: GenerationRequest) -> dict:
-        wf = json.loads(Path(self.workflow_path).read_text())
-        return _subst(wf, {"{{prompt}}": req.prompt, "{{image}}": req.image_url or "",
-                           "{{audio}}": req.audio_url or "", "{{duration}}": req.duration_sec or 0})
+        raw = Path(self.workflow_path).read_text()
+        wf = json.loads(raw)
+        image = req.image_url or ""
+        if image and "{{image}}" in raw:
+            image = self._upload_image(image)
+        # Wan/LTX frame counts must be 4k+1; default 24 fps.
+        fps = int(req.params.get("fps", 24))
+        frames = max(5, int(round((req.duration_sec or 5) * fps / 4)) * 4 + 1)
+        mapping = {"{{prompt}}": req.prompt, "{{image}}": image, "{{audio}}": req.audio_url or "",
+                   "{{duration}}": req.duration_sec or 0, "{{frames}}": frames, "{{fps}}": fps,
+                   "{{width}}": int(req.params.get("width", 1280)), "{{height}}": int(req.params.get("height", 704)),
+                   "{{seed}}": int(req.params.get("seed", int.from_bytes(os.urandom(4), "big")))}
+        return _subst(wf, mapping)
 
     def submit(self, req: GenerationRequest) -> str:
         self.require_configured()
