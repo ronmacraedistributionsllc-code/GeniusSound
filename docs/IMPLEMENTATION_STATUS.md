@@ -39,3 +39,9 @@ Last updated 2026-11-17.
 - `scripts/start.sh` now exports `.env` to the media API, worker and web app (previously the media API never saw provider settings).
 - Ports: web 3876, media API 8876. Stop any stale `next dev` first (`kill <pid>`).
 - Still unverified end to end: the browser UI against a real Postgres, and a full scene generation through the app.
+
+## Verified on the Mac (2026-11-18, night)
+- Launch: double-click `Start Genius Sound.command` (also on the Desktop). It stops stale runs, installs deps, migrates, starts media API :8876, worker, web :3876.
+- Fixed: media API ignored `.env` (now loads it itself); lyric render failed because this Mac's FFmpeg cannot load `ass` (automatic Pillow overlay fallback, tested); Whisper crashed on PyAV 19 (audio decoded via ffmpeg, `av<18` pinned).
+- Verified live: /providers shows comfyui configured; lyric render 200; LLM concepts return real output (~40 s); transcription loads and runs.
+- Not yet exercised in the browser: full storyboard -> scene generation -> final export on a real song. Free disk space first (video needs several GB).
