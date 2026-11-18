@@ -1,6 +1,6 @@
 # Media/AI Service — API Contract
 
-Base URL: `API_URL` (default `http://localhost:8000`). Internal service: called by Next.js server code and workers, never by browsers.
+Base URL: `API_URL` (default `http://localhost:8876`). Internal service: called by Next.js server code and workers, never by browsers.
 Header `X-Internal-Token: $API_INTERNAL_TOKEN` is required when that env var is set (set it in any shared/hosted environment).
 File paths in `/render` are relative to `STORAGE_LOCAL_ROOT` and must stay inside it (otherwise 400).
 

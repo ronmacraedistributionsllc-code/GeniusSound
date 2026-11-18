@@ -5,7 +5,7 @@ const schema = z.object({
   AUTH_SECRET: z.string().min(16, 'AUTH_SECRET must be at least 16 characters'),
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   STORAGE_LOCAL_ROOT: z.string().default('./.data/storage'),
-  API_URL: z.string().default('http://localhost:8000'),
+  API_URL: z.string().default('http://localhost:8876'),
   API_INTERNAL_TOKEN: z.string().default(''),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   WORKER_POLL_MS: z.coerce.number().int().min(250).default(2000),

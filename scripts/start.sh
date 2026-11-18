@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-command local start for Genius Sound.  Usage: ./scripts/start.sh
-# Starts: Postgres (Docker, if needed) -> migrations -> media API (:8000) -> job worker -> web app (:3876)
+# Starts: Postgres (Docker, if needed) -> migrations -> media API (:8876) -> job worker -> web app (:3876)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,14 +23,22 @@ fi
 
 npm install --no-audit --no-fund
 npx prisma generate
+if ! (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null; then
+  echo "ERROR: Postgres is not reachable on localhost:5432. Start Docker Desktop (or your own Postgres) and rerun."; exit 1
+fi
 npx prisma migrate deploy
 
 [ -d api/.venv ] || python3 -m venv api/.venv
 api/.venv/bin/pip install -q -r api/requirements.txt
 
 mkdir -p .data/storage
+for p in 3876 8876; do
+  if (echo > /dev/tcp/127.0.0.1/$p) 2>/dev/null; then
+    echo "ERROR: port $p is already in use. Free it (lsof -i :$p) and rerun."; exit 1
+  fi
+done
 ROOT="$(pwd)"
 trap 'kill 0' EXIT
-(cd api && STORAGE_LOCAL_ROOT="$ROOT/.data/storage" .venv/bin/uvicorn main:app --port 8000) &
+(cd api && STORAGE_LOCAL_ROOT="$ROOT/.data/storage" .venv/bin/uvicorn main:app --port 8876) &
 npm run worker &
 npm run dev
