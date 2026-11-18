@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Job, PrismaClient } from '@prisma/client';
 
 const renderLyricVideo = vi.fn();
+const renderFinal = vi.fn();
 const exists = vi.fn();
 vi.mock('../src/lib/media-api', async () => {
   class MediaApiError extends Error { constructor(m: string, public status: number | null, public retryable: boolean) { super(m); } }
-  return { mediaApi: { renderLyricVideo: (...a: unknown[]) => renderLyricVideo(...a) }, MediaApiError };
+  return { mediaApi: { renderLyricVideo: (...a: unknown[]) => renderLyricVideo(...a), renderFinal: (...a: unknown[]) => renderFinal(...a) }, MediaApiError };
 });
 vi.mock('../src/lib/storage', () => ({ getStorage: () => ({ exists, size: async () => 4096 }) }));
 
@@ -25,6 +26,8 @@ function fakeDb(opts: { lyrics?: boolean; audio?: boolean } = { lyrics: true, au
       updateMany: async ({ where, data }: any) => (where.status?.in?.includes(render.status) ? (Object.assign(render, data), { count: 1 }) : { count: 0 }),
     },
     renderOutput: { create: async ({ data }: any) => { outputs.push(data); return data; } },
+    storyboard: { findFirst: async () => db.board },
+    board: null as any,
     audioUpload: { findFirst: async () => (opts.audio ? { storageKey: 'projects/p1/audio/a.wav', durationSec: 30 } : null) },
     lyrics: { findUnique: async () => (opts.lyrics ? { lines: [{ order: 0, text: 'hi there', startSec: 1, endSec: 2, words: [{ order: 0, word: 'hi', startSec: 1, endSec: 1.5 }, { order: 1, word: 'there', startSec: 1.5, endSec: 2 }] }] } : null) },
     $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
@@ -37,7 +40,7 @@ function fakeDb(opts: { lyrics?: boolean; audio?: boolean } = { lyrics: true, au
 }
 const as = (d: any) => d as PrismaClient;
 
-beforeEach(() => { renderLyricVideo.mockReset(); exists.mockReset().mockResolvedValue(true); });
+beforeEach(() => { renderFinal.mockReset(); renderLyricVideo.mockReset(); exists.mockReset().mockResolvedValue(true); });
 
 describe('lyric render worker', () => {
   it('renders with saved word timings and records a real output', async () => {
@@ -64,5 +67,21 @@ describe('lyric render worker', () => {
     const db = fakeDb(); renderLyricVideo.mockImplementation(async () => { db.jobRow.status = 'CANCELLED'; return { output: 'x', duration: 30 }; });
     await runLyricRender(as(db), db.jobRow as Job);
     expect(db.outputs).toHaveLength(0); expect(db.render.status).not.toBe('SUCCEEDED');
+  });
+});
+
+describe('final export worker', () => {
+  const scene = (n: number, key: string | null) => ({ number: n, durationSec: 4, generations: key ? [{ storageKey: key }] : [] });
+  it('refuses to export when a scene has no generated clip', async () => {
+    const db = fakeDb(); db.render.kind = 'FINAL'; db.board = { scenes: [scene(1, 'k1'), scene(2, null)] };
+    await processJob(as(db), db.jobRow as Job);
+    expect(renderFinal).not.toHaveBeenCalled(); expect(db.jobRow.status).toBe('FAILED'); expect(db.jobRow.error).toContain('2');
+  });
+  it('assembles real clips in order with the song and records the output', async () => {
+    const db = fakeDb(); db.render.kind = 'FINAL'; db.board = { scenes: [scene(1, 'k1'), scene(2, 'k2')] };
+    renderFinal.mockResolvedValue({ output: 'x', duration: 8 });
+    await processJob(as(db), db.jobRow as Job);
+    expect(renderFinal.mock.calls[0][0]).toMatchObject({ clips: [{ path: 'k1', duration: 4 }, { path: 'k2', duration: 4 }], audio: 'projects/p1/audio/a.wav', transition: 'none' });
+    expect(db.render.status).toBe('SUCCEEDED'); expect(db.outputs).toHaveLength(1);
   });
 });

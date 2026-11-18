@@ -11,5 +11,5 @@ export const GET = handle<{ params: Promise<{ id: string }> }>(async (_req, { pa
   const storage = getStorage();
   if (!(await storage.exists(out.storageKey))) throw new ApiError(410, 'Render file is missing from storage');
   const data = await storage.get(out.storageKey);
-  return new Response(new Uint8Array(data), { headers: { 'Content-Type': out.mimeType, 'Content-Length': String(data.length), 'Content-Disposition': `attachment; filename="lyric-video-${id}.mp4"` } });
+  return new Response(new Uint8Array(data), { headers: { 'Content-Type': out.mimeType, 'Content-Length': String(data.length), 'Content-Disposition': `attachment; filename="genius-sound-${id}.mp4"` } });
 });

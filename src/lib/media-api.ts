@@ -70,4 +70,6 @@ export const mediaApi = {
   generationStatus: (provider: string, jobId: string) =>
     call(`/generate/${encodeURIComponent(provider)}/${encodeURIComponent(jobId)}`) as Promise<{ state: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'; progress: number; output_urls: string[]; error: string | null }>,
   cancelGeneration: (provider: string, jobId: string) => call(`/generate/${encodeURIComponent(provider)}/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' }),
+  renderFinal: (body: { clips: { path: string; duration: number }[]; audio: string; output: string; aspect: string; quality: string; transition: string; preview: boolean }) =>
+    call('/render', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 60 * 60_000 }) as Promise<{ output: string; duration: number }>,
 };

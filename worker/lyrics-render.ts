@@ -13,6 +13,7 @@ export async function runLyricRender(db: Db, job: Job): Promise<void> {
   const { renderId } = job.payload as { renderId: string };
   const render = await db.renderJob.findUnique({ where: { id: renderId } });
   if (!render) throw new MediaApiError('Render no longer exists', 404, false);
+  if (render.kind === 'FINAL' || render.kind === 'PREVIEW') return runFinalRender(db, job, render);
   const options = render.options as unknown as LyricVideoOptions;
   const projectId = job.projectId ?? render.projectId;
   const audio = await db.audioUpload.findFirst({ where: { projectId }, orderBy: { createdAt: 'desc' } });
@@ -25,15 +26,43 @@ export async function runLyricRender(db: Db, job: Job): Promise<void> {
   await progress(db, job.id, 10, 'Rendering lyric video');
   const outputKey = `projects/${projectId}/renders/${renderId}.mp4`;
   const r = await mediaApi.renderLyricVideo({ lines, audio: audio.storageKey, output: outputKey, duration, ...options });
+  await finishRender(db, job, renderId, outputKey, r.duration, 'Lyric video');
+}
+
+async function finishRender(db: Db, job: Job, renderId: string, outputKey: string, durationSec: number, label: string) {
   if (!(await stillRunning(db, job.id))) return; // cancelled: discard
   const storage = getStorage();
   if (!(await storage.exists(outputKey))) throw new MediaApiError('Renderer finished but produced no file', null, false);
   const sizeBytes = await storage.size(outputKey);
   await db.$transaction([
-    db.renderOutput.create({ data: { renderJobId: renderId, label: 'Lyric video', storageKey: outputKey, mimeType: 'video/mp4', sizeBytes } }),
-    db.renderJob.update({ where: { id: renderId }, data: { status: 'SUCCEEDED', progress: 100, outputKey, durationSec: r.duration, sizeBytes, finishedAt: new Date() } }),
+    db.renderOutput.create({ data: { renderJobId: renderId, label, storageKey: outputKey, mimeType: 'video/mp4', sizeBytes } }),
+    db.renderJob.update({ where: { id: renderId }, data: { status: 'SUCCEEDED', progress: 100, outputKey, durationSec, sizeBytes, finishedAt: new Date() } }),
   ]);
   await db.job.updateMany({ where: { id: job.id, status: 'RUNNING' }, data: { status: 'SUCCEEDED', progress: 100, progressMessage: 'Done', finishedAt: new Date(), result: { renderId } } });
+}
+
+/** Final export: the newest generated clip of every scene, in storyboard order, plus the song. Refuses if any scene has no real clip. */
+async function runFinalRender(db: Db, job: Job, render: { id: string; projectId: string; options: unknown }): Promise<void> {
+  const o = (render.options ?? {}) as { aspect?: string; quality?: string; transition?: string; preview?: boolean };
+  const audio = await db.audioUpload.findFirst({ where: { projectId: render.projectId }, orderBy: { createdAt: 'desc' } });
+  if (!audio) throw new MediaApiError('Project has no audio', 422, false);
+  const sb = await db.storyboard.findFirst({
+    where: { projectId: render.projectId }, orderBy: { createdAt: 'desc' },
+    include: { scenes: { orderBy: { order: 'asc' }, include: { generations: { where: { status: 'SUCCEEDED', storageKey: { not: null } }, orderBy: { createdAt: 'desc' }, take: 1 } } } },
+  });
+  if (!sb || sb.scenes.length === 0) throw new MediaApiError('Project has no storyboard', 422, false);
+  const missing = sb.scenes.filter((s) => !s.generations[0]?.storageKey).map((s) => s.number);
+  if (missing.length) throw new MediaApiError(`Scenes without a generated clip: ${missing.join(', ')}`, 422, false);
+  const storage = getStorage();
+  for (const s of sb.scenes) if (!(await storage.exists(s.generations[0].storageKey!))) throw new MediaApiError(`Clip file for scene ${s.number} is missing from storage`, 422, false);
+  await db.renderJob.update({ where: { id: render.id }, data: { status: 'RUNNING', startedAt: new Date(), error: null } });
+  await progress(db, job.id, 10, 'Assembling video');
+  const outputKey = `projects/${render.projectId}/renders/${render.id}.mp4`;
+  const r = await mediaApi.renderFinal({
+    clips: sb.scenes.map((s) => ({ path: s.generations[0].storageKey!, duration: s.durationSec })), audio: audio.storageKey, output: outputKey,
+    aspect: o.aspect ?? '16:9', quality: o.quality ?? '1080p', transition: o.transition ?? 'none', preview: !!o.preview,
+  });
+  await finishRender(db, job, render.id, outputKey, r.duration, o.preview ? 'Preview' : 'Final video');
 }
 
 /** Auto-sync: Whisper transcript aligned to the user's lyrics text. Requires faster-whisper on the media service (503 otherwise). */

@@ -58,7 +58,8 @@ def build_command(clips: list[Clip], audio: Optional[str], out: str, aspect: str
         cmd += ["-i", audio]
     parts = []
     for i in range(len(clips)):
-        parts.append(f"[{i}:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps={fps},format=yuv420p[v{i}]")
+        # hold the last frame if a generated clip is shorter than its scene, then cut to the exact scene length
+        parts.append(f"[{i}:v]tpad=stop_mode=clone:stop_duration={clips[i].duration:.3f},trim=duration={clips[i].duration:.3f},setpts=PTS-STARTPTS,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps={fps},format=yuv420p[v{i}]")
     label, total = "v0", clips[0].duration
     for i in range(1, len(clips)):
         nxt = f"x{i}"

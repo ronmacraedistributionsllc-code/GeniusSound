@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FinalExport } from '@/components/export/FinalExport';
 import { SceneGenerator } from '@/components/scenes/SceneGenerator';
 import { Empty, PageHeader } from '@/components/ui/ui';
 import { requireUserPage } from '@/lib/auth';
@@ -14,7 +15,7 @@ export default async function ScenesPage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader title="AI Scene Generator" subtitle="Generate a real clip for each storyboard scene with ComfyUI, Replicate or fal. Nothing is faked: failures are shown as failures."
         action={<form><select name="project" defaultValue={current.id} className="rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm" aria-label="Project">{projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select> <button className="ml-2 px-3 py-2 rounded-lg bg-zinc-800 text-sm">Open</button></form>} />
-      <SceneGenerator key={current.id} projectId={current.id} />
+      <div className="space-y-8"><SceneGenerator key={current.id} projectId={current.id} /><FinalExport key={`x${current.id}`} projectId={current.id} /></div>
     </>
   );
 }
