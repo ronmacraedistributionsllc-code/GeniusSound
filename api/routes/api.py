@@ -246,19 +246,32 @@ class LyricVideoIn(BaseModel):
     quality: Literal["1080p", "4k"] = "1080p"
     preview: bool = False
     overrides: dict[str, Any] = {}
+    start: float = Field(0.0, ge=0)  # promo clips: render only [start, start+duration) of the song
+
+
+def shift_lines(lines: list[dict[str, Any]], start: float, end: float) -> list[dict[str, Any]]:
+    """Keep lines that overlap [start, end), re-based to 0. Words fully outside the window are dropped."""
+    out = []
+    for ln in lines:
+        ws = [{**w, "start": max(0.0, w["start"] - start), "end": min(end - start, w["end"] - start)}
+              for w in ln.get("words", []) if w["end"] > start and w["start"] < end]
+        if ws:
+            out.append({**ln, "words": ws, "start": ws[0]["start"], "end": ws[-1]["end"]})
+    return out
 
 
 @router.post("/render/lyric-video")
 def render_lyric_video(body: LyricVideoIn) -> dict:
     out = safe_path(body.output)
     try:
-        ass_text = karaoke.generate_ass(body.lines, body.template, body.aspect, body.overrides)
+        lines = shift_lines(body.lines, body.start, body.start + body.duration) if body.start > 0 else body.lines
+        ass_text = karaoke.generate_ass(lines, body.template, body.aspect, body.overrides)
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         ass_path = out + ".ass"
         Path(ass_path).write_text(ass_text, encoding="utf-8")
         return assembly.render_lyric_video(safe_path(body.background) if body.background else None, safe_path(body.audio),
                                            ass_path, out, body.duration, aspect=body.aspect, quality=body.quality,
-                                           preview=body.preview)
+                                           preview=body.preview, audio_start=body.start)
     except ValueError as e:
         raise HTTPException(422, str(e))
     except RuntimeError as e:

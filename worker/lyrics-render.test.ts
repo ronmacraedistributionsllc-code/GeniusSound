@@ -85,3 +85,15 @@ describe('final export worker', () => {
     expect(db.render.status).toBe('SUCCEEDED'); expect(db.outputs).toHaveLength(1);
   });
 });
+
+describe('promo clip worker', () => {
+  it('renders just the chosen window, with or without lyrics', async () => {
+    const db = fakeDb({ audio: true, lyrics: false }); db.render.kind = 'PROMO_CLIP';
+    db.render.options = { template: 'bold_center', aspect: '9:16', quality: '1080p', preview: false, start: 42, clipSeconds: 15 };
+    renderLyricVideo.mockResolvedValue({ output: 'x', duration: 15 });
+    await processJob(as(db), db.jobRow as Job);
+    expect(renderLyricVideo.mock.calls[0][0]).toMatchObject({ start: 42, duration: 15, aspect: '9:16', lines: [] });
+    expect(renderLyricVideo.mock.calls[0][0]).not.toHaveProperty('clipSeconds');
+    expect(db.render.status).toBe('SUCCEEDED'); expect(db.outputs[0].label).toBe('Promo clip');
+  });
+});

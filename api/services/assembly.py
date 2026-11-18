@@ -113,7 +113,7 @@ def assemble(clips: list[Clip], audio: Optional[str], out: str,
 
 def lyric_video_command(background: Optional[str], audio: str, ass: str, out: str, duration: float,
                         aspect: str = "16:9", quality: str = "1080p", bg_color: str = "#0b0b12", fps: int = 30,
-                        preview: bool = False) -> list[str]:
+                        preview: bool = False, audio_start: float = 0.0) -> list[str]:
     """Lyric video: looped background image/video (or solid colour) + song + burned-in ASS karaoke."""
     if (aspect, quality) not in FORMATS:
         raise ValueError(f"Unsupported format {aspect} {quality}")
@@ -128,7 +128,7 @@ def lyric_video_command(background: Optional[str], audio: str, ass: str, out: st
         cmd += (["-loop", "1"] if is_img else ["-stream_loop", "-1"]) + ["-t", f"{duration:.3f}", "-i", background]
     else:
         cmd += ["-f", "lavfi", "-i", f"color=c={bg_color.lstrip('#')}:s={w}x{h}:d={duration:.3f}:r={fps}"]
-    cmd += ["-i", audio]
+    cmd += (["-ss", f"{audio_start:.3f}"] if audio_start > 0 else []) + ["-i", audio]
     esc = ass.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
     vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps={fps},ass='{esc}',format=yuv420p"
     crf, preset = ("30", "veryfast") if preview else ("18", "medium")

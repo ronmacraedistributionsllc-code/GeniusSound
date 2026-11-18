@@ -14,19 +14,22 @@ export async function runLyricRender(db: Db, job: Job): Promise<void> {
   const render = await db.renderJob.findUnique({ where: { id: renderId } });
   if (!render) throw new MediaApiError('Render no longer exists', 404, false);
   if (render.kind === 'FINAL' || render.kind === 'PREVIEW') return runFinalRender(db, job, render);
-  const options = render.options as unknown as LyricVideoOptions;
+  const options = render.options as unknown as LyricVideoOptions & { clipSeconds?: number };
+  const isPromo = render.kind === 'PROMO_CLIP';
   const projectId = job.projectId ?? render.projectId;
   const audio = await db.audioUpload.findFirst({ where: { projectId }, orderBy: { createdAt: 'desc' } });
   if (!audio) throw new MediaApiError('Project has no audio', 422, false);
-  const lines = await loadLyricsForRender(db, projectId);
-  if (!lines) throw new MediaApiError('Project has no lyrics', 422, false);
-  const duration = audio.durationSec ?? lines[lines.length - 1].end + 2;
+  const loaded = await loadLyricsForRender(db, projectId);
+  if (!loaded && !isPromo) throw new MediaApiError('Project has no lyrics', 422, false);
+  const lines = loaded ?? []; // promo clips may be lyric-less (audio over a plain background)
+  const duration = isPromo ? options.clipSeconds! : (audio.durationSec ?? lines[lines.length - 1].end + 2);
 
   await db.renderJob.update({ where: { id: renderId }, data: { status: 'RUNNING', startedAt: new Date(), error: null } });
   await progress(db, job.id, 10, 'Rendering lyric video');
   const outputKey = `projects/${projectId}/renders/${renderId}.mp4`;
-  const r = await mediaApi.renderLyricVideo({ lines, audio: audio.storageKey, output: outputKey, duration, ...options });
-  await finishRender(db, job, renderId, outputKey, r.duration, 'Lyric video');
+  const { clipSeconds: _c, ...renderOpts } = options; void _c;
+  const r = await mediaApi.renderLyricVideo({ lines, audio: audio.storageKey, output: outputKey, duration, ...renderOpts });
+  await finishRender(db, job, renderId, outputKey, r.duration, isPromo ? 'Promo clip' : 'Lyric video');
 }
 
 async function finishRender(db: Db, job: Job, renderId: string, outputKey: string, durationSec: number, label: string) {

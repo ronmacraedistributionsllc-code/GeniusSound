@@ -6,7 +6,7 @@ import { api, fmtBytes, fmtTime } from '@/lib/client';
 
 type Line = { id: string; order: number; text: string; startSec: number; endSec: number };
 type LyricsData = { id: string; source: 'MANUAL' | 'TRANSCRIBED' | 'UPLOADED'; lines: Line[] } | null;
-type Render = { id: string; status: string; progress: number; error: string | null; preset: string | null; sizeBytes: number | null; createdAt: string; outputs: { id: string }[] };
+type Render = { id: string; kind: string; status: string; progress: number; error: string | null; preset: string | null; sizeBytes: number | null; createdAt: string; outputs: { id: string }[] };
 type SyncJob = { status: string; progressMessage: string | null; error: string | null } | null;
 
 const TEMPLATES = [['classic_karaoke', 'Classic karaoke (bottom, yellow)'], ['bold_center', 'Bold center (pink)'], ['minimal_top', 'Minimal top (cyan)']] as const;
@@ -28,7 +28,7 @@ export function LyricsStudio({ projectId, hasAudio, initial, initialText }: { pr
         api<{ lyrics: LyricsData }>(`/api/projects/${projectId}/lyrics`),
         api<{ jobs: (NonNullable<SyncJob> & { type: string; projectId?: string; project: { id: string } | null })[] }>('/api/jobs'),
       ]);
-      setRenders(r.renders);
+      setRenders(r.renders.filter((x) => x.kind === 'LYRIC_VIDEO'));
       setLyrics(l.lyrics);
       setSync(j.jobs.find((x) => x.type === 'TRANSCRIPTION' && x.project?.id === projectId) ?? null);
     } catch { /* keep last good state */ }
