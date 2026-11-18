@@ -73,6 +73,15 @@ export const mediaApi = {
   generationStatus: (provider: string, jobId: string) =>
     call(`/generate/${encodeURIComponent(provider)}/${encodeURIComponent(jobId)}`) as Promise<{ state: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'; progress: number; output_urls: string[]; error: string | null }>,
   cancelGeneration: (provider: string, jobId: string) => call(`/generate/${encodeURIComponent(provider)}/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' }),
+  /** Research-derived components (see third_party/README.md). */
+  detectScenes: (body: { storage_key: string; detector?: 'adaptive' | 'content' | 'threshold'; threshold?: number }) =>
+    call('/scenes/detect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 5 * 60_000 }) as Promise<{ scenes: { index: number; start: number; end: number; duration: number }[] }>,
+  pacingCheck: (body: { scenes: { start: number; end: number }[]; sections?: { start: number; label?: string }[]; beats?: number[]; tolerance?: number }) =>
+    call('/pacing/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) as Promise<{ ok: boolean; issues: { type: string; detail: string; scene?: number; section?: string }[]; stats: { scenes: number; off_beat_cuts: number; avg_scene_sec: number }; variation: { ok: boolean; issues: unknown[] } }>,
+  shotPrompt: (body: { scene: Record<string, unknown>; style?: Record<string, unknown> }) =>
+    call('/prompts/shot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) as Promise<{ prompt: string }>,
+  pickTake: (body: { takes: { id: string; scores?: Record<string, number>; error?: string }[] }) =>
+    call('/takes/pick', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) as Promise<{ best: string | null; ranking: { id: string; score: number }[]; needs_review: boolean }>,
   renderFinal: (body: { clips: { path: string; duration: number }[]; audio: string; output: string; aspect: string; quality: string; transition: string; preview: boolean }) =>
     call('/render', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 60 * 60_000 }) as Promise<{ output: string; duration: number }>,
 };
