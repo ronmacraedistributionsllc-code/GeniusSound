@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3876",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3876",
     "lint": "eslint",
     "test": "vitest run",
     "worker": "tsx worker/index.ts",

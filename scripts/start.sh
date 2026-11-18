@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-command local start for Genius Sound.  Usage: ./scripts/start.sh
-# Starts: Postgres (Docker, if needed) -> migrations -> media API (:8000) -> job worker -> web app (:3000)
+# Starts: Postgres (Docker, if needed) -> migrations -> media API (:8000) -> job worker -> web app (:3876)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

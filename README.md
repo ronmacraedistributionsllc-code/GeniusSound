@@ -8,8 +8,8 @@ Turn a song into a cinematic music video: upload → analyze → creative direct
 ```bash
 ./scripts/start.sh
 ```
-Then open http://localhost:3000, create an account (the first account becomes admin), create a project, upload an MP3/WAV.
-The script: creates `.env` (with a generated `AUTH_SECRET`), starts Postgres via Docker if needed, runs migrations, starts the media API (:8000), the job worker, and the web app (:3000).
+Then open http://localhost:3876, create an account (the first account becomes admin), create a project, upload an MP3/WAV.
+The script: creates `.env` (with a generated `AUTH_SECRET`), starts Postgres via Docker if needed, runs migrations, starts the media API (:8000), the job worker, and the web app (:3876).
 Needs Node 20+, Python 3.10+, ffmpeg (`brew install ffmpeg`), and Docker *or* your own Postgres 16 (set `DATABASE_URL`).
 
 ## What is in here
